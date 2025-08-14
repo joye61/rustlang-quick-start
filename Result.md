@@ -229,6 +229,164 @@ fn try_do_something() -> Result<(), String> {
 | 错误信息 | 没有                 | 有错误信息              |
 | 使用场景 | 值可能为空              | 操作可能失败（如文件、解析）     |
 
+
+
+# `?` 运算符
+
 ---
 
-如你需要我继续讲解 `?` 的底层机制、错误封装最佳实践、或结合异步处理 `Result` 的方式，也可以继续问我！
+## 1️⃣ 什么是 `?` 运算符
+
+* `?` 是 Rust 的 **错误传播运算符**。
+* 用于 **快速返回错误或空值**，避免手动写大量 `match`。
+* 它可以用于 **`Result`** 或 **`Option`** 类型。
+
+**作用**：
+
+* 如果是 `Ok(value)` 或 `Some(value)`，返回内部值。
+* 如果是 `Err(e)` 或 `None`，**立即返回**，把错误/空值传递给调用者。
+
+---
+
+## 2️⃣ `?` 与 `Result`
+
+### 示例
+
+```rust
+fn read_number(s: &str) -> Result<i32, std::num::ParseIntError> {
+    let n: i32 = s.parse()?; // parse() 返回 Result<i32, ParseIntError>
+    Ok(n + 1)
+}
+
+fn main() {
+    let res = read_number("42");
+    println!("{:?}", res); // Ok(43)
+    
+    let res2 = read_number("abc");
+    println!("{:?}", res2); // Err(ParseIntError)
+}
+```
+
+解释：
+
+1. `s.parse()` 返回 `Result<i32, ParseIntError>`。
+2. `?` 会：
+
+   * `Ok(v)` → 解包为 `v` 并继续执行函数。
+   * `Err(e)` → 函数立即返回 `Err(e)`。
+3. 函数返回类型必须是 `Result<..., ...>`。
+
+---
+
+### 2.1 多个 `?` 链式使用
+
+```rust
+fn sum_two_numbers(a: &str, b: &str) -> Result<i32, std::num::ParseIntError> {
+    let n1: i32 = a.parse()?;
+    let n2: i32 = b.parse()?;
+    Ok(n1 + n2)
+}
+```
+
+* 每个 `?` 都可能提前返回错误。
+* 这样写比嵌套 `match` 简洁很多。
+
+---
+
+## 3️⃣ `?` 与 `Option`
+
+`?` 同样可以用于 `Option`，前提是函数返回 `Option<T>`。
+
+```rust
+fn get_first_char(s: &str) -> Option<char> {
+    let c = s.chars().next()?; // None 会直接返回 None
+    Some(c.to_ascii_uppercase())
+}
+
+fn main() {
+    println!("{:?}", get_first_char("hello")); // Some('H')
+    println!("{:?}", get_first_char(""));      // None
+}
+```
+
+* `s.chars().next()` 返回 `Option<char>`。
+* `?` 会：
+
+  * `Some(v)` → 解包 v。
+  * `None` → 函数立即返回 None。
+
+---
+
+## 4️⃣ `?` 原理
+
+* `?` 本质上是 **语法糖**，等价于匹配：
+
+### 对 Result\<T, E>：
+
+```rust
+let x = f()?; 
+// 等价于
+let x = match f() {
+    Ok(v) => v,
+    Err(e) => return Err(e),
+};
+```
+
+### 对 Option<T>：
+
+```rust
+let x = f()?;
+// 等价于
+let x = match f() {
+    Some(v) => v,
+    None => return None,
+};
+```
+
+* `?` 的返回值类型必须和函数的返回类型匹配（Result/Option）。
+
+---
+
+## 5️⃣ Option ↔ Result 的组合使用
+
+有时你需要把 Option 转成 Result：
+
+```rust
+fn parse_first_digit(s: &str) -> Result<u32, &'static str> {
+    let first_char = s.chars().next().ok_or("Empty string")?;
+    let digit = first_char.to_digit(10).ok_or("Not a digit")?;
+    Ok(digit)
+}
+```
+
+* `ok_or(msg)`：Option → Result
+* `?` 之后可以继续链式传播错误。
+
+---
+
+## 6️⃣ 注意事项
+
+1. `?` 只能在返回类型是 `Result` 或 `Option` 的函数里使用。
+2. 它会立即返回，不会继续执行函数。
+3. 可以配合 `ok_or` 将 `Option` 转为 `Result`，统一错误处理。
+4. 可读性强、代码简洁，但要确保函数签名与可能返回类型匹配。
+
+---
+
+## 7️⃣ 总结
+
+| 特性              | Result\<T,E>                      | Option<T>                       |
+| --------------- | --------------------------------- | ------------------------------- |
+| `?` 用法          | Ok(v) → v, Err(e) → return Err(e) | Some(v) → v, None → return None |
+| 必须函数返回类型        | Result\<T,E>                      | Option<T>                       |
+| 链式调用            | 支持多层 propagate                    | 支持多层 propagate                  |
+| Option 转 Result | `ok_or` / `ok_or_else`            | -                               |
+
+✅ `?` 是 Rust **优雅处理错误或缺失值的核心语法糖**，与 `Result`、`Option` 密切相关，是写安全 Rust 的关键技巧。
+
+---
+
+我可以帮你画一张 **? 运算符工作流程图**，展示 Option/Result 的分支流向，视觉上会很清楚。
+
+你希望我画吗？
+
