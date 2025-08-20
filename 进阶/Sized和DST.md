@@ -67,8 +67,6 @@ print_value(&[1, 2, 3]);       // [i32] → DST → OK
 print_value(&123);            // i32 → Sized → OK
 ```
 
----
-
 ## 常见 DST 类型有哪些？
 
 | 类型          | 是否 DST | 是否能直接用？ | 正确用法                           |
@@ -323,7 +321,6 @@ fn main() {
 | `[T]`       | `&[T]` / `Box<[T]>`             | 不能直接写 `[T]` |
 | `dyn Trait` | `&dyn Trait` / `Box<dyn Trait>` | Trait 对象    |
 
----
 
 ## 总结
 
